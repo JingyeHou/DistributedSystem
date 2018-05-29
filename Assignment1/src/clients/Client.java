@@ -2,12 +2,18 @@ package clients;
 
 import records.*;
 import manager.ManagerInterface;
+
+import java.io.IOException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.util.ArrayList;
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.logging.FileHandler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 public class Client extends Thread{
     private String clientLocation;
@@ -19,6 +25,8 @@ public class Client extends Thread{
     private int port;
     private List<Record> records;
     private List<EditRecordInFo> editRecordInFos;
+    private Logger logger;
+    FileHandler fileHandler = null;
 
     public Client(String clientLocation) {
         this.clientLocation = clientLocation;
@@ -50,6 +58,8 @@ public class Client extends Thread{
 
         this.records = new ArrayList<Record>();
         this.editRecordInFos = new ArrayList<EditRecordInFo>();
+        this.logger  = Logger.getLogger(getID() + "ClientLogger");
+        this.logger.setUseParentHandlers(false);
     }
 
     public String getClientLocation() {
@@ -112,10 +122,37 @@ public class Client extends Thread{
     @Override
     public void run() {
         super.run();
+        try {
+            fileHandler = new FileHandler("./logs/client/" + this.getID() + "Client.log");
+            logger.addHandler(fileHandler);
+//            SimpleFormatter simpleFormatter = new SimpleFormatter();
+            fileHandler.setFormatter(new SimpleFormatter() {
+                @Override
+                public String format(LogRecord record) {
+                    SimpleDateFormat logTime = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss");
+                    Calendar cal = new GregorianCalendar();
+                    cal.setTimeInMillis(record.getMillis());
+                    return record.getLevel()
+                            + logTime.format(cal.getTime())
+                            + " || "
+                            + record.getSourceClassName().substring(
+                            record.getSourceClassName().lastIndexOf(".")+1,
+                            record.getSourceClassName().length())
+                            + "."
+                            + record.getSourceMethodName()
+                            + "() : "
+                            + record.getMessage() + "\n";
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         for (Record record : records) {
             if (record.isSRFlag()) {
                 try {
                     manager.createSRecord(record.getFirstName(), record.getLastName(), record.getCourses(), record.getStatus());
+                    logger.info("the Student Record is created Successfully");
                 } catch (RemoteException e) {
                     e.printStackTrace();
                 }
@@ -123,6 +160,7 @@ public class Client extends Thread{
             if (record.isTRFlag()) {
                 try {
                     manager.createTRecord(record.getFirstName(), record.getLastName(), record.getAddress(), record.getPhone(), record.getSpecialization(), record.getLocation());
+                    logger.info("the Teacher Record is created Successfully");
                 } catch (RemoteException e) {
                     e.printStackTrace();
                 }
@@ -145,19 +183,7 @@ public class Client extends Thread{
         if (clientLocation.equals("LVL")) return "LVL" + String.format("%5d", id).replace(" ", "0");
         else return "";
     }
-//        public static void main(String[] args) throws Exception{
-//        Registry registry = LocateRegistry.getRegistry(6666);
-//        ManagerInterface manager = (ManagerInterface) registry.lookup("MTL");
-//        List<Course> courses = new ArrayList<Course>();
-//        courses.add(Course.french);
-//        courses.add(Course.maths);
-//        manager.createSRecord("Jingye", "Hou", courses, Status.active);
-//        manager.createSRecord("Wenjin", "Chou", courses, Status.active);
-//        manager.createSRecord("Junping", "Deng", courses, Status.active);
-//        manager.editRecord("SR00001", "Status", "inactive");
-//        System.out.println(manager.format());
-//        System.out.println(manager.getRecordCounts());
-//        }
+
     class EditRecordInFo {
         private String recordID;
         private String fieldName;

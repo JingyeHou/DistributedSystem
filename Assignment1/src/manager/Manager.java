@@ -1,8 +1,8 @@
 package manager;
 
+import observer.Observer;
 import records.*;
 import servers.Server;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -16,21 +16,43 @@ public class Manager extends UnicastRemoteObject implements ManagerInterface {
 
     Map<String, List<Record>> data = new HashMap<String, List<Record>>();
     Map<String, Record> persons = new HashMap<String, Record>();
+    private List<Observer> observers;
 
     public Manager() throws RemoteException {
         super();
+        observers = new ArrayList<>();
+    }
+
+    public void attach(Observer observer){
+        observers.add(observer);
+    }
+
+    public void  deleteObserver(Observer observer) {
+        observers.remove(observer);
+    }
+
+    public void notifyAllObservers(String message) {
+        for (Observer observer : observers) {
+            observer.update(message);
+        }
+    }
+
+    public void setMessage(String message) {
+        notifyAllObservers(message);
     }
 
     public void createTRecord(String firstName, String lastName, String address, String phone, Course specialization, Location location) throws RuntimeException{
         TeacherRecord teacherRecord = new TeacherRecord(firstName, lastName, address, phone, specialization, location);
         putIntoMap(teacherRecord);
         persons.put(teacherRecord.getRecordID(), teacherRecord);
+        notifyAllObservers("the Teacher Record is created Successfully");
     }
 
     public void createSRecord(String firstName, String lastName, List<Course> courseRegistered, Status status) throws RuntimeException {
         StudentRecord studentRecord = new StudentRecord(firstName, lastName, courseRegistered, status);
         putIntoMap(studentRecord);
         persons.put(studentRecord.getRecordID(), studentRecord);
+        notifyAllObservers("the Student Record is created Successfully");
     }
 
     public String getRecordCounts() throws RemoteException {

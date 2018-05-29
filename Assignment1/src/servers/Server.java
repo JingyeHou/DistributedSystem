@@ -1,6 +1,7 @@
 package servers;
 
 import manager.Manager;
+import observer.Observer;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -13,17 +14,33 @@ import java.rmi.registry.Registry;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Server extends Thread{
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+
+public class Server extends Thread implements Observer {
     private int port;
     private String ServerLocation;
     private Manager manager;
     private static Map<String, Integer> serverStore = new HashMap<String, Integer>();
+    private Logger logger;
+    FileHandler fileHandler;
 
     public Server(int port, String serverLocation) {
         this.port = port;
         ServerLocation = serverLocation;
         serverStore.put(serverLocation, port);
+        this.logger  = Logger.getLogger(getServerLocation() + "ServerLogger");
+        this.logger.setUseParentHandlers(false);
     }
+
+
+    @Override
+    public void update(String message) {
+        this.logger.log(Level.INFO, message);
+    }
+
 
 
     @Override
@@ -36,10 +53,16 @@ public class Server extends Thread{
         DatagramSocket aSocket = null;
         try {
             manager = new Manager();
+            manager.attach(this);
             Registry registry = LocateRegistry.createRegistry(port);
             registry.bind(ServerLocation, manager);
             aSocket = new DatagramSocket(port);
-            System.out.println(ServerLocation + "'s server is started");
+
+            fileHandler = new FileHandler("./logs/server/" + this.getServerLocation() + "Server.log");
+            logger.addHandler(fileHandler);
+            SimpleFormatter simpleFormatter = new SimpleFormatter();
+            fileHandler.setFormatter(simpleFormatter);
+            this.logger.log(Level.INFO, ServerLocation + "'s server is started");
             while (true) {
                 String recordInfo = getServerLocation() + " " + manager.getCounts();
                 byte[] buffer = new byte[recordInfo.length()];
@@ -59,6 +82,8 @@ public class Server extends Thread{
         } finally {
             if (aSocket != null) aSocket.close();
         }
+
+
     }
 
     public static Map<String, Integer> getServerStore() {
